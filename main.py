@@ -22,6 +22,16 @@ def determinar_categoria(idade):
         return "Master"
     else:
         return "Veterano"
+def gerar_codigo_corredor(nome, idade):
+    """Gera o código de identificação do corredor."""
+    partes_nome = nome.strip().split()
+
+    primeiro_nome = partes_nome[0]
+    ultimo_sobrenome = partes_nome[-1]
+
+    codigo = primeiro_nome[:3] + ultimo_sobrenome[:3] + str(idade)
+
+    return codigo.upper()
 
 def main():
     """Executa o programa principal da corrida."""
@@ -33,6 +43,8 @@ def main():
     print(valor)
     categoria = determinar_categoria(25)
     print(categoria)
+    codigo = gerar_codigo_corredor("João Silva", 25)
+    print(codigo)
 
 if __name__ == "__main__":
     main()
