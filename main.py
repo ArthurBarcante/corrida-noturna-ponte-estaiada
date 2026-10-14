@@ -1,3 +1,22 @@
+def cadastrar_corredor():
+    """Cadastra os dados de um corredor."""
+    nome = input("Digite o nome do corredor: ")
+    idade = int(input("Digite a idade do corredor: "))
+    distancia = int(input("Digite a distância da corrida (5 ou 10 km): "))
+    lote = int(input("Digite o lote de inscrição (1 ou 2): "))
+
+    valor_inscricao = calcular_valor_inscricao(idade, distancia, lote)
+    categoria = determinar_categoria(idade)
+    codigo_corredor = gerar_codigo_corredor(nome, idade)
+
+    print("\nResumo da Inscrição:")
+    print(f"Nome: {nome}")
+    print(f"Idade: {idade}")
+    print(f"Distância: {distancia} km")
+    print(f"Lote: {lote}")
+    print(f"Valor da Inscrição: R$ {valor_inscricao:.2f}")
+    print(f"Categoria: {categoria}")
+    print(f"Código do Corredor: {codigo_corredor}")
 def calcular_valor_inscricao(idade, distancia, lote):
     """Calcula o valor da inscrição."""
     if lote == 1:
@@ -47,4 +66,4 @@ def main():
     print(codigo)
 
 if __name__ == "__main__":
-    main()
+    cadastrar_corredor()
