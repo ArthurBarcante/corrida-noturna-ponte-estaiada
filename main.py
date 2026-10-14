@@ -2,6 +2,11 @@ def cadastrar_corredor():
     """Cadastra os dados de um corredor."""
     nome = input("Digite o nome do corredor: ")
     idade = int(input("Digite a idade do corredor: "))
+     
+
+    while idade < 16:
+        print("Erro: o corredor precisa ter pelo menos 16 anos.")
+        idade = int(input("Digite a idade novamente: "))
     distancia = int(input("Digite a distância da corrida (5 ou 10 km): "))
     lote = int(input("Digite o lote de inscrição (1 ou 2): "))
 
