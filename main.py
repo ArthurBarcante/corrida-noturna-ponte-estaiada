@@ -57,6 +57,22 @@ def gerar_codigo_corredor(nome, idade):
 
     return codigo.upper()
 
+def converter_tempo_segundos(tempo):
+    """Converte um tempo no formato HH:MM:SS para segundos."""
+    if len(tempo) != 8 or tempo[2] != ":" or tempo[5] != ":":
+        raise ValueError("Formato inválido. Use HH:MM:SS.")
+    horas = tempo[:2]
+    minutos = tempo[3:5]
+    segundos = tempo[6:8]
+    if not (horas.isdigit() and minutos.isdigit() and segundos.isdigit()):
+        raise ValueError("O tempo deve conter apenas números e dois-pontos.")
+    horas = int(horas)
+    minutos = int(minutos)
+    segundos = int(segundos)
+    if minutos > 59 or segundos > 59:
+        raise ValueError("Minutos e segundos devem estar entre 00 e 59.")
+    return horas * 3600 + minutos * 60 + segundos
+
 def main():
     """Executa o programa principal da corrida."""
     print("====================================")
