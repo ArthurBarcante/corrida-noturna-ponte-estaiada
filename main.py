@@ -84,6 +84,30 @@ def calcular_pace(tempo_segundos, distancia):
     segundos = pace_segundos % 60
     return f"{minutos}'{segundos:02d}\"/km"
 
+def verificar_premiacao(idade, distancia, tempo_segundos):
+    """Verifica se o corredor foi premiado conforme sua categoria."""
+    if idade < 16:
+        raise ValueError("O corredor deve ter pelo menos 16 anos.")
+    if distancia not in (5, 10):
+        raise ValueError("A distância deve ser 5 ou 10 km.")
+    if tempo_segundos < 0:
+        raise ValueError("O tempo não pode ser negativo.")
+    categoria = determinar_categoria(idade)
+    if categoria == "Juvenil" or categoria == "Master":
+        limite_5km = 25 * 60
+        limite_10km = 52 * 60
+    elif categoria == "Adulto":
+        limite_5km = 22 * 60
+        limite_10km = 46 * 60
+    else:
+        limite_5km = 30 * 60
+        limite_10km = 63 * 60
+    if distancia == 5:
+        limite = limite_5km
+    else:
+        limite = limite_10km
+    return tempo_segundos <= limite
+
 def main():
     """Executa o programa principal da corrida."""
     print("====================================")
