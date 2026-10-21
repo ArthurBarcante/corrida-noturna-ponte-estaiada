@@ -1,14 +1,38 @@
-def cadastrar_corredor():
-    """Cadastra os dados de um corredor."""
-    nome = input("Digite o nome do corredor: ")
-    idade = int(input("Digite a idade do corredor: "))
-     
+def solicitar_inteiro(mensagem, minimo=None, opcoes=None):
+    """Solicita um número inteiro até que ele atenda às regras informadas."""
+    while True:
+        try:
+            valor = int(input(mensagem))
+        except ValueError:
+            print("Entrada inválida. Digite um número inteiro.")
+            continue
 
-    while idade < 16:
-        print("Erro: o corredor precisa ter pelo menos 16 anos.")
-        idade = int(input("Digite a idade novamente: "))
-    distancia = int(input("Digite a distância da corrida (5 ou 10 km): "))
-    lote = int(input("Digite o lote de inscrição (1 ou 2): "))
+        if minimo is not None and valor < minimo:
+            print(f"Erro: o valor mínimo permitido é {minimo}.")
+            continue
+        if opcoes is not None and valor not in opcoes:
+            opcoes_texto = " ou ".join(str(opcao) for opcao in opcoes)
+            print(f"Opção inválida. Escolha {opcoes_texto}.")
+            continue
+        return valor
+
+
+def cadastrar_corredor():
+    """Cadastra os dados de um corredor e exibe seu comprovante."""
+    nome = input("Digite o nome do corredor: ").strip()
+    while not nome:
+        print("O nome não pode ficar vazio.")
+        nome = input("Digite o nome do corredor: ").strip()
+
+    idade = solicitar_inteiro(
+        "Digite a idade do corredor: ", minimo=16
+    )
+    distancia = solicitar_inteiro(
+        "Digite a distância da corrida (5 ou 10 km): ", opcoes=(5, 10)
+    )
+    lote = solicitar_inteiro(
+        "Digite o lote de inscrição (1 ou 2): ", opcoes=(1, 2)
+    )
 
     valor_inscricao = calcular_valor_inscricao(idade, distancia, lote)
     categoria = determinar_categoria(idade)
@@ -22,6 +46,9 @@ def cadastrar_corredor():
     print(f"Valor da Inscrição: R$ {valor_inscricao:.2f}")
     print(f"Categoria: {categoria}")
     print(f"Código do Corredor: {codigo_corredor}")
+    return valor_inscricao
+
+
 def calcular_valor_inscricao(idade, distancia, lote):
     """Calcula o valor da inscrição."""
     if lote == 1:
@@ -108,18 +135,63 @@ def verificar_premiacao(idade, distancia, tempo_segundos):
         limite = limite_10km
     return tempo_segundos <= limite
 
+
+def consultar_resultado():
+    """Solicita os dados de uma prova e exibe o resultado individual."""
+    idade = solicitar_inteiro(
+        "Digite a idade do corredor: ", minimo=16
+    )
+    distancia = solicitar_inteiro(
+        "Digite a distância da corrida (5 ou 10 km): ", opcoes=(5, 10)
+    )
+
+    while True:
+        tempo = input("Digite o tempo no formato HH:MM:SS: ").strip()
+        try:
+            tempo_segundos = converter_tempo_segundos(tempo)
+        except ValueError as erro:
+            print(f"Tempo inválido: {erro}")
+            continue
+        break
+
+    pace = calcular_pace(tempo_segundos, distancia)
+    premiado = verificar_premiacao(idade, distancia, tempo_segundos)
+    categoria = determinar_categoria(idade)
+    print("\nResultado do Corredor:")
+    print(f"Categoria: {categoria}")
+    print(f"Distância: {distancia} km")
+    print(f"Tempo: {tempo}")
+    print(f"Pace médio: {pace}")
+    print(f"Premiado: {'Sim' if premiado else 'Não'}")
+
+
 def main():
-    """Executa o programa principal da corrida."""
-    print("====================================")
-    print(" CORRIDA NOTURNA DA PONTE ESTAIADA")
-    print("====================================")
-    print("Versão 0.1 - Estrutura inicial")
-    valor = calcular_valor_inscricao(25, 10, 1)
-    print(valor)
-    categoria = determinar_categoria(25)
-    print(categoria)
-    codigo = gerar_codigo_corredor("João Silva", 25)
-    print(codigo)
+    """Executa o menu da corrida e resume as inscrições da sessão."""
+    quantidade_inscricoes = 0
+    total_arrecadado = 0
+
+    while True:
+        print("\n====================================")
+        print(" CORRIDA NOTURNA DA PONTE ESTAIADA")
+        print("====================================")
+        print("1 - Fazer inscrição")
+        print("2 - Calcular resultado")
+        print("0 - Sair")
+        opcao = input("Escolha uma opção: ").strip()
+
+        if opcao == "1":
+            total_arrecadado += cadastrar_corredor()
+            quantidade_inscricoes += 1
+        elif opcao == "2":
+            consultar_resultado()
+        elif opcao == "0":
+            print("\nResumo da sessão:")
+            print(f"Inscrições aceitas: {quantidade_inscricoes}")
+            print(f"Total arrecadado: R$ {total_arrecadado:.2f}")
+            print("Encerrando o sistema.")
+            break
+        else:
+            print("Opção inválida. Escolha 1, 2 ou 0.")
 
 if __name__ == "__main__":
-    cadastrar_corredor()
+    main()
