@@ -73,6 +73,17 @@ def converter_tempo_segundos(tempo):
         raise ValueError("Minutos e segundos devem estar entre 00 e 59.")
     return horas * 3600 + minutos * 60 + segundos
 
+def calcular_pace(tempo_segundos, distancia):
+    """Calcula o pace médio por quilômetro."""
+    if distancia not in (5, 10):
+        raise ValueError("A distância deve ser 5 ou 10 km.")
+    if tempo_segundos < 0:
+        raise ValueError("O tempo não pode ser negativo.")
+    pace_segundos = tempo_segundos // distancia
+    minutos = pace_segundos // 60
+    segundos = pace_segundos % 60
+    return f"{minutos}'{segundos:02d}\"/km"
+
 def main():
     """Executa o programa principal da corrida."""
     print("====================================")
