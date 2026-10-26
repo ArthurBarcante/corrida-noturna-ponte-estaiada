@@ -17,8 +17,8 @@ def solicitar_inteiro(mensagem, minimo=None, opcoes=None):
         return valor
 
 
-def cadastrar_corredor():
-    """Cadastra os dados de um corredor e exibe seu comprovante."""
+def cadastrar_corredor(corredores):
+    """Adiciona um corredor à lista de inscritos da execução atual."""
     nome = input("Digite o nome do corredor: ").strip()
     while not nome:
         print("O nome não pode ficar vazio.")
@@ -37,8 +37,20 @@ def cadastrar_corredor():
     valor_inscricao = calcular_valor_inscricao(idade, distancia, lote)
     categoria = determinar_categoria(idade)
     codigo_corredor = gerar_codigo_corredor(nome, idade)
+    corredor = {
+        "numero": len(corredores) + 1,
+        "nome": nome,
+        "idade": idade,
+        "distancia": distancia,
+        "lote": lote,
+        "valor_inscricao": valor_inscricao,
+        "categoria": categoria,
+        "codigo": codigo_corredor,
+    }
+    corredores.append(corredor)
 
     print("\nResumo da Inscrição:")
+    print(f"Número da inscrição: {corredor['numero']}")
     print(f"Nome: {nome}")
     print(f"Idade: {idade}")
     print(f"Distância: {distancia} km")
@@ -46,7 +58,36 @@ def cadastrar_corredor():
     print(f"Valor da Inscrição: R$ {valor_inscricao:.2f}")
     print(f"Categoria: {categoria}")
     print(f"Código do Corredor: {codigo_corredor}")
-    return valor_inscricao
+    return corredor
+
+
+def consultar_corredor(corredores):
+    """Lista os inscritos e consulta os dados de uma inscrição pelo número."""
+    if not corredores:
+        print("Nenhum corredor cadastrado nesta corrida.")
+        return None
+
+    print("\nCorredores cadastrados:")
+    for corredor in corredores:
+        print(f"{corredor['numero']} - {corredor['nome']} | {corredor['distancia']} km")
+    numero = solicitar_inteiro("Número da inscrição para consultar (0 para voltar): ", minimo=0)
+    if numero == 0:
+        return None
+    corredor = next((item for item in corredores if item["numero"] == numero), None)
+    if corredor is None:
+        print("Inscrição não encontrada.")
+        return None
+
+    print("\nDados do corredor:")
+    print(f"Número da inscrição: {corredor['numero']}")
+    print(f"Nome: {corredor['nome']}")
+    print(f"Idade: {corredor['idade']}")
+    print(f"Distância: {corredor['distancia']} km")
+    print(f"Lote: {corredor['lote']}")
+    print(f"Valor da Inscrição: R$ {corredor['valor_inscricao']:.2f}")
+    print(f"Categoria: {corredor['categoria']}")
+    print(f"Código do Corredor: {corredor['codigo']}")
+    return corredor
 
 
 def calcular_valor_inscricao(idade, distancia, lote):
@@ -166,7 +207,8 @@ def consultar_resultado():
 
 
 def main():
-    """Executa o menu da corrida e resume as inscrições da sessão."""
+    """Mantém os inscritos da corrida em memória durante a sessão."""
+    corredores = []
     quantidade_inscricoes = 0
     total_arrecadado = 0
 
@@ -176,14 +218,18 @@ def main():
         print("====================================")
         print("1 - Fazer inscrição")
         print("2 - Calcular resultado")
+        print("3 - Consultar corredores cadastrados")
         print("0 - Sair")
         opcao = input("Escolha uma opção: ").strip()
 
         if opcao == "1":
-            total_arrecadado += cadastrar_corredor()
+            corredor = cadastrar_corredor(corredores)
+            total_arrecadado += corredor["valor_inscricao"]
             quantidade_inscricoes += 1
         elif opcao == "2":
             consultar_resultado()
+        elif opcao == "3":
+            consultar_corredor(corredores)
         elif opcao == "0":
             print("\nResumo da sessão:")
             print(f"Inscrições aceitas: {quantidade_inscricoes}")
@@ -191,7 +237,7 @@ def main():
             print("Encerrando o sistema.")
             break
         else:
-            print("Opção inválida. Escolha 1, 2 ou 0.")
+            print("Opção inválida. Escolha 1, 2, 3 ou 0.")
 
 if __name__ == "__main__":
     main()

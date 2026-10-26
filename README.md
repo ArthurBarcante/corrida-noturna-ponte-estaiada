@@ -57,18 +57,33 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - Verificação da premiação por categoria e distância.
 - Menu interativo, validação de entradas e resumo da sessão.
 
-## Planejamento para a V2.0 — Controle da corrida inteira
+## Desenvolvimento da V2.0 — Controle da corrida inteira
 
-**Funcionalidades previstas para desenvolvimento futuro; não fazem parte da V1.0:**
+**Primeiro item implementado nesta etapa:**
 
-- Cadastrar e consultar **múltiplos corredores** em uma mesma edição da corrida.
-- Armazenar e recuperar inscrições e resultados entre execuções.
-- Registrar tempos de chegada dos participantes.
-- Gerar **classificações e rankings** por distância e categoria.
-- Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
-- Permitir consulta da classificação geral da prova.
+- [x] Cadastrar e consultar **múltiplos corredores** em uma mesma edição da corrida.
+
+A opção `1` adiciona o corredor à lista de inscritos e informa seu número de inscrição. A opção `3` lista os inscritos e permite consultar os dados de um deles pelo número; digite `0` para voltar. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente.
+
+Os cadastros ficam somente na memória durante a execução atual. Ao encerrar o programa, a lista é descartada. A opção `2` continua calculando um resultado individual, sem associá-lo aos cadastros, e a opção `0` mantém o resumo da sessão da V1.0.
+
+**Próximos itens, ainda não implementados:**
+
+- [ ] Armazenar e recuperar inscrições e resultados entre execuções.
+- [ ] Registrar tempos de chegada dos participantes.
+- [ ] Gerar **classificações e rankings** por distância e categoria.
+- [ ] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
+- [ ] Permitir consulta da classificação geral da prova.
 
 O escopo detalhado e o formato de armazenamento da V2.0 serão definidos na segunda etapa do projeto.
+
+## Testes
+
+Execute os testes do cadastro e da consulta de corredores com:
+
+```powershell
+py -3 -m unittest -v
+```
 
 ## Tecnologias
 
