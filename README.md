@@ -30,7 +30,7 @@ O corredor é premiado quando seu tempo é **menor ou igual** ao limite da categ
 
 ## Como executar
 
-Requisito: Python 3 instalado. A V1.0 utiliza apenas a biblioteca padrão, sem dependências externas.
+Requisito: Python 3 instalado. A V1.0 e as etapas implementadas da V2.0 utilizam apenas a biblioteca padrão, sem dependências externas.
 
 1. Clone o repositório ou abra sua pasta no terminal.
 2. Execute:
@@ -59,31 +59,56 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 
 ## Desenvolvimento da V2.0 — Controle da corrida inteira
 
-**Primeiro item implementado nesta etapa:**
+**Itens implementados:**
 
 - [x] Cadastrar e consultar **múltiplos corredores** em uma mesma edição da corrida.
+- [x] Armazenar e recuperar inscrições e resultados entre execuções.
 
-A opção `1` adiciona o corredor à lista de inscritos e informa seu número de inscrição. A opção `3` lista os inscritos e permite consultar os dados de um deles pelo número; digite `0` para voltar. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente.
+### Menu atual
 
-Os cadastros ficam somente na memória durante a execução atual. Ao encerrar o programa, a lista é descartada. A opção `2` continua calculando um resultado individual, sem associá-lo aos cadastros, e a opção `0` mantém o resumo da sessão da V1.0.
+| Opção | Ação |
+| --- | --- |
+| `1` | Cadastrar um corredor e salvar sua inscrição |
+| `2` | Calcular um resultado individual e salvá-lo no histórico |
+| `3` | Listar os inscritos e consultar uma inscrição pelo número |
+| `4` | Exibir o histórico de resultados calculados |
+| `0` | Exibir o resumo da sessão e encerrar |
+
+Na opção `3`, digite `0` para voltar depois de ver a lista de inscritos. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente. A numeração continua após o maior número de inscrição recuperado do arquivo.
+
+Os resultados da opção `2` são **cálculos avulsos**, sem associação a um corredor cadastrado. A opção `4` exibe os cálculos salvos, incluindo os recuperados de execuções anteriores. Registrar tempos de chegada vinculados aos participantes permanece como próximo item.
+
+A opção `0` preserva o resumo da V1.0: considera somente a quantidade de inscrições aceitas e o valor arrecadado **durante a execução atual**. As inscrições recuperadas continuam disponíveis para consulta, mas não entram novamente nos totais da sessão.
+
+### Armazenamento e recuperação
+
+As inscrições e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
+
+- Se o arquivo não existir, o programa inicia sem inscrições e sem resultados anteriores.
+- A pasta e o arquivo são criados automaticamente na primeira gravação após um cadastro ou cálculo.
+- Ao iniciar novamente, o programa recupera as inscrições e o histórico de resultados salvos.
+- Cada gravação usa um arquivo temporário e substitui o arquivo anterior somente após concluir a escrita.
+- Um arquivo inválido impede a inicialização e tem seu conteúdo preservado. Corrija os dados ou restaure uma cópia válida antes de executar novamente.
+- A pasta `dados/` é ignorada pelo Git; os dados locais não fazem parte do repositório.
 
 **Próximos itens, ainda não implementados:**
 
-- [ ] Armazenar e recuperar inscrições e resultados entre execuções.
 - [ ] Registrar tempos de chegada dos participantes.
 - [ ] Gerar **classificações e rankings** por distância e categoria.
 - [ ] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
 - [ ] Permitir consulta da classificação geral da prova.
 
-O escopo detalhado e o formato de armazenamento da V2.0 serão definidos na segunda etapa do projeto.
+As próximas etapas serão implementadas separadamente, seguindo a ordem da lista.
 
 ## Testes
 
-Execute os testes do cadastro e da consulta de corredores com:
+Execute os testes de cadastro, consulta, armazenamento e recuperação com:
 
 ```powershell
 py -3 -m unittest -v
 ```
+
+Os testes incluem a recuperação dos dados após reiniciar o programa e a preservação dos dados anteriores em caso de arquivo inválido ou falha de gravação.
 
 ## Tecnologias
 
@@ -91,4 +116,4 @@ py -3 -m unittest -v
 - Git e GitHub
 - Visual Studio Code
 
-A V2.0 está planejada para evoluir do atendimento individual para o controle da corrida inteira, incluindo múltiplos corredores, armazenamento de dados, classificações e relatórios.
+O desenvolvimento da V2.0 continua com o registro de tempos dos participantes, as classificações e os relatórios da corrida.

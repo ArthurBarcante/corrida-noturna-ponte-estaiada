@@ -1,3 +1,12 @@
+import json
+import os
+import tempfile
+from pathlib import Path
+
+
+ARQUIVO_DADOS = Path(__file__).resolve().parent / "dados" / "corrida.json"
+
+
 def solicitar_inteiro(mensagem, minimo=None, opcoes=None):
     """Solicita um número inteiro até que ele atenda às regras informadas."""
     while True:
@@ -18,7 +27,7 @@ def solicitar_inteiro(mensagem, minimo=None, opcoes=None):
 
 
 def cadastrar_corredor(corredores):
-    """Adiciona um corredor à lista de inscritos da execução atual."""
+    """Adiciona um corredor à lista de inscrições da corrida."""
     nome = input("Digite o nome do corredor: ").strip()
     while not nome:
         print("O nome não pode ficar vazio.")
@@ -38,7 +47,7 @@ def cadastrar_corredor(corredores):
     categoria = determinar_categoria(idade)
     codigo_corredor = gerar_codigo_corredor(nome, idade)
     corredor = {
-        "numero": len(corredores) + 1,
+        "numero": max((item["numero"] for item in corredores), default=0) + 1,
         "nome": nome,
         "idade": idade,
         "distancia": distancia,
@@ -204,11 +213,139 @@ def consultar_resultado():
     print(f"Tempo: {tempo}")
     print(f"Pace médio: {pace}")
     print(f"Premiado: {'Sim' if premiado else 'Não'}")
+    return {
+        "idade": idade,
+        "distancia": distancia,
+        "tempo": tempo,
+        "tempo_segundos": tempo_segundos,
+        "categoria": categoria,
+        "pace": pace,
+        "premiado": premiado,
+    }
+
+
+def validar_dados(dados):
+    """Verifica os cadastros e os cálculos avulsos antes de usar o arquivo."""
+    if not isinstance(dados, dict) or set(dados) != {"versao", "corredores", "resultados"}:
+        raise ValueError("O arquivo deve conter versao, corredores e resultados.")
+    if type(dados["versao"]) is not int or dados["versao"] != 1:
+        raise ValueError("Formato de armazenamento não suportado.")
+    if not isinstance(dados["corredores"], list) or not isinstance(dados["resultados"], list):
+        raise ValueError("Inscrições e resultados devem ser listas.")
+
+    campos_corredor = {
+        "numero", "nome", "idade", "distancia", "lote",
+        "valor_inscricao", "categoria", "codigo",
+    }
+    numeros = set()
+    for corredor in dados["corredores"]:
+        if not isinstance(corredor, dict) or set(corredor) != campos_corredor:
+            raise ValueError("Há uma inscrição com campos inválidos.")
+        numero = corredor["numero"]
+        if type(numero) is not int or numero < 1 or numero in numeros:
+            raise ValueError("Os números de inscrição devem ser positivos e únicos.")
+        numeros.add(numero)
+        if not isinstance(corredor["nome"], str) or not corredor["nome"].strip():
+            raise ValueError("Há uma inscrição sem nome válido.")
+        if type(corredor["idade"]) is not int or corredor["idade"] < 16:
+            raise ValueError("A idade mínima é 16 anos.")
+        if type(corredor["distancia"]) is not int or corredor["distancia"] not in (5, 10):
+            raise ValueError("A distância deve ser 5 ou 10 km.")
+        if type(corredor["lote"]) is not int or corredor["lote"] not in (1, 2):
+            raise ValueError("O lote deve ser 1 ou 2.")
+        if corredor["categoria"] != determinar_categoria(corredor["idade"]):
+            raise ValueError("A categoria da inscrição é inconsistente.")
+        if corredor["codigo"] != gerar_codigo_corredor(corredor["nome"], corredor["idade"]):
+            raise ValueError("O código da inscrição é inconsistente.")
+        valor = corredor["valor_inscricao"]
+        if type(valor) not in (int, float) or valor != calcular_valor_inscricao(
+            corredor["idade"], corredor["distancia"], corredor["lote"],
+        ):
+            raise ValueError("O valor da inscrição é inconsistente.")
+
+    campos_resultado = {
+        "idade", "distancia", "tempo", "tempo_segundos", "categoria", "pace", "premiado",
+    }
+    for resultado in dados["resultados"]:
+        if not isinstance(resultado, dict) or set(resultado) != campos_resultado:
+            raise ValueError("Há um resultado com campos inválidos.")
+        if type(resultado["idade"]) is not int or resultado["idade"] < 16:
+            raise ValueError("A idade do cálculo deve ser de pelo menos 16 anos.")
+        if type(resultado["distancia"]) is not int or resultado["distancia"] not in (5, 10):
+            raise ValueError("A distância do cálculo deve ser 5 ou 10 km.")
+        if not isinstance(resultado["tempo"], str):
+            raise ValueError("O tempo do cálculo deve usar HH:MM:SS.")
+        segundos = converter_tempo_segundos(resultado["tempo"])
+        if type(resultado["tempo_segundos"]) is not int or resultado["tempo_segundos"] != segundos:
+            raise ValueError("O tempo do cálculo é inconsistente.")
+        if resultado["categoria"] != determinar_categoria(resultado["idade"]):
+            raise ValueError("A categoria do cálculo é inconsistente.")
+        if resultado["pace"] != calcular_pace(segundos, resultado["distancia"]):
+            raise ValueError("O pace do cálculo é inconsistente.")
+        premiado = verificar_premiacao(resultado["idade"], resultado["distancia"], segundos)
+        if type(resultado["premiado"]) is not bool or resultado["premiado"] != premiado:
+            raise ValueError("A premiação do cálculo é inconsistente.")
+
+
+def carregar_dados(caminho=ARQUIVO_DADOS):
+    """Recupera inscrições e histórico; não substitui arquivos inválidos."""
+    caminho = Path(caminho)
+    try:
+        with caminho.open(encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+    except FileNotFoundError:
+        return {"versao": 1, "corredores": [], "resultados": []}
+    except (json.JSONDecodeError, UnicodeError) as erro:
+        raise ValueError(f"Arquivo de dados inválido: {caminho}.") from erro
+    validar_dados(dados)
+    return dados
+
+
+def salvar_dados(dados, caminho=ARQUIVO_DADOS):
+    """Grava o estado completo antes de substituir o arquivo anterior."""
+    validar_dados(dados)
+    caminho = Path(caminho)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    temporario = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=caminho.parent,
+            prefix=f".{caminho.name}.", suffix=".tmp", delete=False,
+        ) as arquivo:
+            temporario = Path(arquivo.name)
+            json.dump(dados, arquivo, ensure_ascii=False, indent=2, allow_nan=False)
+            arquivo.write("\n")
+            arquivo.flush()
+            os.fsync(arquivo.fileno())
+        os.replace(temporario, caminho)
+    finally:
+        if temporario is not None:
+            temporario.unlink(missing_ok=True)
+
+
+def consultar_historico_resultados(resultados):
+    """Exibe os cálculos avulsos recuperados, sem vinculá-los a inscritos."""
+    if not resultados:
+        print("Nenhum resultado salvo.")
+        return
+    print("\nHistórico dos cálculos avulsos:")
+    for numero, resultado in enumerate(resultados, start=1):
+        print(f"\nCálculo #{numero} | Idade: {resultado['idade']}")
+        print(f"Categoria: {resultado['categoria']} | Distância: {resultado['distancia']} km")
+        print(f"Tempo: {resultado['tempo']} | Pace médio: {resultado['pace']}")
+        print(f"Premiado: {'Sim' if resultado['premiado'] else 'Não'}")
 
 
 def main():
-    """Mantém os inscritos da corrida em memória durante a sessão."""
-    corredores = []
+    """Recupera e salva inscrições e cálculos, mantendo o resumo da sessão."""
+    try:
+        dados = carregar_dados(ARQUIVO_DADOS)
+    except (OSError, ValueError) as erro:
+        print(f"Não foi possível carregar os dados: {erro}")
+        print("O arquivo existente foi preservado. Corrija-o antes de continuar.")
+        return 1
+    print(f"Inscrições recuperadas: {len(dados['corredores'])}")
+    print(f"Resultados recuperados: {len(dados['resultados'])}")
     quantidade_inscricoes = 0
     total_arrecadado = 0
 
@@ -219,25 +356,50 @@ def main():
         print("1 - Fazer inscrição")
         print("2 - Calcular resultado")
         print("3 - Consultar corredores cadastrados")
+        print("4 - Consultar resultados salvos")
         print("0 - Sair")
-        opcao = input("Escolha uma opção: ").strip()
-
-        if opcao == "1":
-            corredor = cadastrar_corredor(corredores)
-            total_arrecadado += corredor["valor_inscricao"]
-            quantidade_inscricoes += 1
-        elif opcao == "2":
-            consultar_resultado()
-        elif opcao == "3":
-            consultar_corredor(corredores)
-        elif opcao == "0":
-            print("\nResumo da sessão:")
-            print(f"Inscrições aceitas: {quantidade_inscricoes}")
-            print(f"Total arrecadado: R$ {total_arrecadado:.2f}")
-            print("Encerrando o sistema.")
-            break
-        else:
-            print("Opção inválida. Escolha 1, 2, 3 ou 0.")
+        try:
+            opcao = input("Escolha uma opção: ").strip()
+            if opcao == "1":
+                atualizados = {
+                    "versao": 1,
+                    "corredores": [dict(corredor) for corredor in dados["corredores"]],
+                    "resultados": list(dados["resultados"]),
+                }
+                corredor = cadastrar_corredor(atualizados["corredores"])
+                salvar_dados(atualizados, ARQUIVO_DADOS)
+                dados = atualizados
+                total_arrecadado += corredor["valor_inscricao"]
+                quantidade_inscricoes += 1
+                print("Inscrição salva com sucesso.")
+            elif opcao == "2":
+                resultado = consultar_resultado()
+                atualizados = {
+                    "versao": 1,
+                    "corredores": list(dados["corredores"]),
+                    "resultados": dados["resultados"] + [resultado],
+                }
+                salvar_dados(atualizados, ARQUIVO_DADOS)
+                dados = atualizados
+                print("Resultado salvo com sucesso.")
+            elif opcao == "3":
+                consultar_corredor(dados["corredores"])
+            elif opcao == "4":
+                consultar_historico_resultados(dados["resultados"])
+            elif opcao == "0":
+                print("\nResumo da sessão:")
+                print(f"Inscrições aceitas: {quantidade_inscricoes}")
+                print(f"Total arrecadado: R$ {total_arrecadado:.2f}")
+                print("Encerrando o sistema.")
+                return 0
+            else:
+                print("Opção inválida. Escolha 1, 2, 3, 4 ou 0.")
+        except (OSError, ValueError) as erro:
+            print(f"Não foi possível salvar a operação: {erro}")
+            print("Os dados anteriores foram mantidos. A operação não foi confirmada.")
+        except (EOFError, KeyboardInterrupt):
+            print("\nEncerrando o sistema. As operações confirmadas estão salvas.")
+            return 0
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
