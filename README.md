@@ -63,6 +63,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 
 - [x] Cadastrar e consultar **múltiplos corredores** em uma mesma edição da corrida.
 - [x] Armazenar e recuperar inscrições e resultados entre execuções.
+- [x] Registrar tempos de chegada dos participantes.
 
 ### Menu atual
 
@@ -72,28 +73,37 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 | `2` | Calcular um resultado individual e salvá-lo no histórico |
 | `3` | Listar os inscritos e consultar uma inscrição pelo número |
 | `4` | Exibir o histórico de resultados calculados |
+| `5` | Registrar o tempo de chegada de um participante inscrito |
 | `0` | Exibir o resumo da sessão e encerrar |
 
 Na opção `3`, digite `0` para voltar depois de ver a lista de inscritos. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente. A numeração continua após o maior número de inscrição recuperado do arquivo.
 
-Os resultados da opção `2` são **cálculos avulsos**, sem associação a um corredor cadastrado. A opção `4` exibe os cálculos salvos, incluindo os recuperados de execuções anteriores. Registrar tempos de chegada vinculados aos participantes permanece como próximo item.
+Os resultados da opção `2` são **cálculos avulsos**, sem associação a um corredor cadastrado. A opção `4` exibe os cálculos salvos, incluindo os recuperados de execuções anteriores. Esses cálculos continuam aceitando `00:00:00`, conforme o comportamento da V1.0.
+
+### Registro de tempos de chegada
+
+Na opção `5`, escolha o participante pelo número da inscrição exibido na lista; digite `0` para voltar. Informe o **tempo de prova** no formato `HH:MM:SS`, entre `00:00:01` e `99:59:59`. Minutos e segundos devem estar entre `00` e `59`. Entradas inválidas são solicitadas novamente.
+
+Cada inscrição tem um tempo de chegada. Se já houver um tempo registrado, responda `s` para confirmar sua substituição ou `n` para manter o anterior. O programa confirma o registro após salvá-lo no arquivo de dados.
+
+A opção `3` mostra o tempo de chegada do participante ou indica **pendente**. Novos cadastros começam pendentes, assim como inscrições antigas sem esse campo. O tempo fica associado à inscrição e é recuperado ao reiniciar o programa; ele não é adicionado ao histórico de cálculos avulsos da opção `4`.
 
 A opção `0` preserva o resumo da V1.0: considera somente a quantidade de inscrições aceitas e o valor arrecadado **durante a execução atual**. As inscrições recuperadas continuam disponíveis para consulta, mas não entram novamente nos totais da sessão.
 
 ### Armazenamento e recuperação
 
-As inscrições e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
+As inscrições, seus tempos de chegada e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
 
 - Se o arquivo não existir, o programa inicia sem inscrições e sem resultados anteriores.
-- A pasta e o arquivo são criados automaticamente na primeira gravação após um cadastro ou cálculo.
-- Ao iniciar novamente, o programa recupera as inscrições e o histórico de resultados salvos.
+- A pasta e o arquivo são criados automaticamente na primeira gravação após um cadastro, cálculo ou registro de tempo.
+- O tempo de chegada usa o campo opcional `tempo_chegada` de cada inscrição. Arquivos antigos sem esse campo continuam válidos, e essas inscrições são apresentadas como pendentes.
+- Ao iniciar novamente, o programa recupera as inscrições, os tempos de chegada e o histórico de resultados salvos.
 - Cada gravação usa um arquivo temporário e substitui o arquivo anterior somente após concluir a escrita.
 - Um arquivo inválido impede a inicialização e tem seu conteúdo preservado. Corrija os dados ou restaure uma cópia válida antes de executar novamente.
 - A pasta `dados/` é ignorada pelo Git; os dados locais não fazem parte do repositório.
 
 **Próximos itens, ainda não implementados:**
 
-- [ ] Registrar tempos de chegada dos participantes.
 - [ ] Gerar **classificações e rankings** por distância e categoria.
 - [ ] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
 - [ ] Permitir consulta da classificação geral da prova.
@@ -102,13 +112,13 @@ As próximas etapas serão implementadas separadamente, seguindo a ordem da list
 
 ## Testes
 
-Execute os testes de cadastro, consulta, armazenamento e recuperação com:
+Execute os testes de cadastro, consulta, armazenamento, recuperação e registro de tempos com:
 
 ```powershell
 py -3 -m unittest -v
 ```
 
-Os testes incluem a recuperação dos dados após reiniciar o programa e a preservação dos dados anteriores em caso de arquivo inválido ou falha de gravação.
+Os testes incluem a recuperação dos dados após reiniciar o programa, a leitura de inscrições antigas sem tempo de chegada, a identificação de homônimos pelo número da inscrição, a validação e a substituição de tempos, além da preservação dos dados anteriores em caso de arquivo inválido ou falha de gravação.
 
 ## Tecnologias
 
@@ -116,4 +126,4 @@ Os testes incluem a recuperação dos dados após reiniciar o programa e a prese
 - Git e GitHub
 - Visual Studio Code
 
-O desenvolvimento da V2.0 continua com o registro de tempos dos participantes, as classificações e os relatórios da corrida.
+O desenvolvimento da V2.0 continua com as classificações e os relatórios da corrida.

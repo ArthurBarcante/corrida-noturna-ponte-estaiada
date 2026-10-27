@@ -55,6 +55,7 @@ def cadastrar_corredor(corredores):
         "valor_inscricao": valor_inscricao,
         "categoria": categoria,
         "codigo": codigo_corredor,
+        "tempo_chegada": None,
     }
     corredores.append(corredor)
 
@@ -96,6 +97,27 @@ def consultar_corredor(corredores):
     print(f"Valor da Inscrição: R$ {corredor['valor_inscricao']:.2f}")
     print(f"Categoria: {corredor['categoria']}")
     print(f"Código do Corredor: {corredor['codigo']}")
+    print(f"Tempo de chegada: {corredor.get('tempo_chegada') or 'pendente'}")
+    return corredor
+
+
+def registrar_tempo_chegada(corredores, numero_inscricao, tempo, substituir=False):
+    """Registra o tempo de prova na inscrição selecionada pelo número."""
+    if type(numero_inscricao) is not int or numero_inscricao < 1:
+        raise ValueError("O número da inscrição deve ser um inteiro positivo.")
+    corredor = next((item for item in corredores if item["numero"] == numero_inscricao), None)
+    if corredor is None:
+        raise ValueError("Inscrição não encontrada.")
+    if corredor.get("tempo_chegada") is not None and not substituir:
+        raise ValueError("Já existe um tempo de chegada. Confirme a substituição.")
+    if not isinstance(tempo, str):
+        raise ValueError("Informe o tempo no formato HH:MM:SS.")
+    segundos = converter_tempo_segundos(tempo.strip())
+    if segundos <= 0:
+        raise ValueError("O tempo de chegada deve ser maior que zero.")
+    horas, restante = divmod(segundos, 3600)
+    minutos, segundos = divmod(restante, 60)
+    corredor["tempo_chegada"] = f"{horas:02d}:{minutos:02d}:{segundos:02d}"
     return corredor
 
 
@@ -225,7 +247,7 @@ def consultar_resultado():
 
 
 def validar_dados(dados):
-    """Verifica os cadastros e os cálculos avulsos antes de usar o arquivo."""
+    """Verifica cadastros, tempos de chegada e cálculos avulsos salvos."""
     if not isinstance(dados, dict) or set(dados) != {"versao", "corredores", "resultados"}:
         raise ValueError("O arquivo deve conter versao, corredores e resultados.")
     if type(dados["versao"]) is not int or dados["versao"] != 1:
@@ -239,7 +261,7 @@ def validar_dados(dados):
     }
     numeros = set()
     for corredor in dados["corredores"]:
-        if not isinstance(corredor, dict) or set(corredor) != campos_corredor:
+        if not isinstance(corredor, dict) or set(corredor) - {"tempo_chegada"} != campos_corredor:
             raise ValueError("Há uma inscrição com campos inválidos.")
         numero = corredor["numero"]
         if type(numero) is not int or numero < 1 or numero in numeros:
@@ -262,6 +284,10 @@ def validar_dados(dados):
             corredor["idade"], corredor["distancia"], corredor["lote"],
         ):
             raise ValueError("O valor da inscrição é inconsistente.")
+        tempo = corredor.get("tempo_chegada")
+        if tempo is not None:
+            if not isinstance(tempo, str) or converter_tempo_segundos(tempo) <= 0:
+                raise ValueError("O tempo de chegada deve usar HH:MM:SS e ser maior que zero.")
 
     campos_resultado = {
         "idade", "distancia", "tempo", "tempo_segundos", "categoria", "pace", "premiado",
@@ -357,6 +383,7 @@ def main():
         print("2 - Calcular resultado")
         print("3 - Consultar corredores cadastrados")
         print("4 - Consultar resultados salvos")
+        print("5 - Registrar tempo de chegada")
         print("0 - Sair")
         try:
             opcao = input("Escolha uma opção: ").strip()
@@ -386,6 +413,36 @@ def main():
                 consultar_corredor(dados["corredores"])
             elif opcao == "4":
                 consultar_historico_resultados(dados["resultados"])
+            elif opcao == "5":
+                corredor = consultar_corredor(dados["corredores"])
+                if corredor is None:
+                    continue
+                substituir = corredor.get("tempo_chegada") is not None
+                if substituir:
+                    resposta = input("Já existe um tempo de chegada. Substituir? (s/n): ").strip().lower()
+                    while resposta not in ("s", "n"):
+                        resposta = input("Digite s para substituir ou n para manter: ").strip().lower()
+                    if resposta == "n":
+                        print("Tempo de chegada anterior mantido.")
+                        continue
+                atualizados = {
+                    "versao": 1,
+                    "corredores": [dict(item) for item in dados["corredores"]],
+                    "resultados": list(dados["resultados"]),
+                }
+                while True:
+                    tempo = input("Tempo de chegada (HH:MM:SS): ").strip()
+                    try:
+                        registrar_tempo_chegada(
+                            atualizados["corredores"], corredor["numero"], tempo, substituir,
+                        )
+                    except ValueError as erro:
+                        print(f"Tempo inválido: {erro}")
+                        continue
+                    break
+                salvar_dados(atualizados, ARQUIVO_DADOS)
+                dados = atualizados
+                print("Tempo de chegada salvo com sucesso.")
             elif opcao == "0":
                 print("\nResumo da sessão:")
                 print(f"Inscrições aceitas: {quantidade_inscricoes}")
@@ -393,7 +450,7 @@ def main():
                 print("Encerrando o sistema.")
                 return 0
             else:
-                print("Opção inválida. Escolha 1, 2, 3, 4 ou 0.")
+                print("Opção inválida. Escolha 1, 2, 3, 4, 5 ou 0.")
         except (OSError, ValueError) as erro:
             print(f"Não foi possível salvar a operação: {erro}")
             print("Os dados anteriores foram mantidos. A operação não foi confirmada.")

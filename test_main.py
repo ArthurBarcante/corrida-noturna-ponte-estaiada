@@ -61,6 +61,8 @@ class TestCadastroEConsulta(unittest.TestCase):
         self.assertEqual(primeiro["valor_inscricao"], 80)
         self.assertEqual(segundo["valor_inscricao"], 60)
         self.assertEqual(segundo["categoria"], "Veterano")
+        self.assertIsNone(primeiro["tempo_chegada"])
+        self.assertIsNone(segundo["tempo_chegada"])
 
     def test_homonimos_com_codigos_iguais_tem_inscricoes_distintas(self):
         corredores = []
@@ -173,6 +175,86 @@ class TestPersistencia(unittest.TestCase):
             self.assertEqual(caminho.read_bytes(), anterior)
 
 
+class TestRegistroDeChegada(unittest.TestCase):
+    def test_registra_somente_no_numero_escolhido_entre_homonimos(self):
+        corredores = [inscricao_exemplo(), inscricao_exemplo(numero=2)]
+        anterior = [dict(c) for c in corredores]
+        resultado = main.registrar_tempo_chegada(corredores, 2, " 00:22:00 ")
+        self.assertIs(resultado, corredores[1])
+        self.assertEqual(corredores[0], anterior[0])
+        self.assertEqual(corredores[1], dict(anterior[1], tempo_chegada="00:22:00"))
+
+    def test_numero_invalido_ou_inexistente_nao_altera_os_cadastros(self):
+        for numero in (0, -1, True, "1", 9):
+            corredores = [inscricao_exemplo()]
+            anterior = [dict(c) for c in corredores]
+            with self.subTest(numero=numero), self.assertRaises(ValueError):
+                main.registrar_tempo_chegada(corredores, numero, "00:22:00")
+            self.assertEqual(corredores, anterior)
+
+    def test_tempo_invalido_nao_altera_o_registro(self):
+        for tempo in (None, 1320, "", "00:00:00", "00:60:00", "00:22:60", "100:00:00", "-1:00:00"):
+            corredores = [inscricao_exemplo(tempo_chegada=None)]
+            anterior = [dict(c) for c in corredores]
+            with self.subTest(tempo=tempo), self.assertRaises(ValueError):
+                main.registrar_tempo_chegada(corredores, 1, tempo)
+            self.assertEqual(corredores, anterior)
+
+    def test_substituicao_exige_autorizacao_explicita(self):
+        corredores = [inscricao_exemplo(tempo_chegada="00:22:00")]
+        with self.assertRaises(ValueError):
+            main.registrar_tempo_chegada(corredores, 1, "00:21:00")
+        self.assertEqual(corredores[0]["tempo_chegada"], "00:22:00")
+        resultado = main.registrar_tempo_chegada(corredores, 1, "00:21:00", substituir=True)
+        self.assertIs(resultado, corredores[0])
+        self.assertEqual(resultado["tempo_chegada"], "00:21:00")
+
+    def test_arquivo_legado_e_recuperado_sem_ser_modificado(self):
+        dados = dados_exemplo()
+        with tempfile.TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "corrida.json"
+            caminho.write_text(json.dumps(dados, ensure_ascii=False), encoding="utf-8")
+            anterior = caminho.read_bytes()
+            recuperados = main.carregar_dados(caminho)
+            self.assertEqual(recuperados, dados)
+            self.assertNotIn("tempo_chegada", recuperados["corredores"][0])
+            self.assertEqual(caminho.read_bytes(), anterior)
+
+    def test_campo_opcional_pendente_ou_valido_e_persistido(self):
+        for tempo in (None, "00:00:01", "99:59:59"):
+            dados = dados_exemplo()
+            dados["corredores"][0]["tempo_chegada"] = tempo
+            with self.subTest(tempo=tempo), tempfile.TemporaryDirectory() as diretorio:
+                caminho = Path(diretorio) / "corrida.json"
+                main.salvar_dados(dados, caminho)
+                self.assertEqual(main.carregar_dados(caminho), dados)
+
+    def test_arquivo_com_chegada_invalida_e_preservado(self):
+        for tempo in (0, True, [], "", "00:00:00", "00:60:00", "100:00:00"):
+            dados = dados_exemplo()
+            dados["corredores"][0]["tempo_chegada"] = tempo
+            with self.subTest(tempo=tempo), tempfile.TemporaryDirectory() as diretorio:
+                caminho = Path(diretorio) / "corrida.json"
+                caminho.write_text(json.dumps(dados), encoding="utf-8")
+                anterior = caminho.read_bytes()
+                with self.assertRaises(ValueError):
+                    main.carregar_dados(caminho)
+                self.assertEqual(caminho.read_bytes(), anterior)
+
+    def test_consulta_mostra_pendente_ou_tempo_sem_modificar_registro(self):
+        for dados_corredor, texto in (
+            (inscricao_exemplo(), "Tempo de chegada: pendente"),
+            (inscricao_exemplo(tempo_chegada=None), "Tempo de chegada: pendente"),
+            (inscricao_exemplo(tempo_chegada="00:22:00"), "Tempo de chegada: 00:22:00"),
+        ):
+            anterior = dict(dados_corredor)
+            saida = io.StringIO()
+            with self.subTest(texto=texto), patch("builtins.input", return_value="1"), redirect_stdout(saida):
+                self.assertIs(main.consultar_corredor([dados_corredor]), dados_corredor)
+            self.assertIn(texto, saida.getvalue())
+            self.assertEqual(dados_corredor, anterior)
+
+
 class TestResultadosAvulsos(unittest.TestCase):
     def test_calculo_retorna_resultado_sem_vinculo_com_inscricao(self):
         with patch("builtins.input", side_effect=["30", "5", "00:22:00"]), redirect_stdout(io.StringIO()):
@@ -241,6 +323,65 @@ class TestFalhasNoMenu(unittest.TestCase):
             self.assertNotIn("Resultado salvo com sucesso.", saida.getvalue())
 
 
+class TestMenuDeChegada(unittest.TestCase):
+    def test_falha_ao_salvar_preserva_tempo_anterior_em_memoria_e_arquivo(self):
+        dados = dados_exemplo()
+        dados["corredores"][0]["tempo_chegada"] = "00:22:00"
+        with tempfile.TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "corrida.json"
+            main.salvar_dados(dados, caminho)
+            anterior = caminho.read_bytes()
+            saida = io.StringIO()
+            with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                    patch("main.os.replace", side_effect=OSError("Falha de disco")), \
+                    patch("builtins.input", side_effect=["5", "1", "s", "00:21:00", "3", "1", "0"]), \
+                    redirect_stdout(saida):
+                self.assertEqual(main.main(), 0)
+            self.assertEqual(caminho.read_bytes(), anterior)
+            self.assertEqual(main.carregar_dados(caminho), dados)
+            self.assertIn("Não foi possível salvar", saida.getvalue())
+            depois_da_falha = saida.getvalue().split("Não foi possível salvar", 1)[1]
+            self.assertIn("Tempo de chegada: 00:22:00", depois_da_falha)
+            self.assertNotIn("Tempo de chegada: 00:21:00", depois_da_falha)
+            self.assertNotIn("Tempo de chegada salvo com sucesso.", saida.getvalue())
+            self.assertIn("Inscrições aceitas: 0", saida.getvalue())
+
+    def test_cancelar_substituicao_nao_grava(self):
+        dados = dados_exemplo()
+        dados["corredores"][0]["tempo_chegada"] = "00:22:00"
+        with tempfile.TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "corrida.json"
+            main.salvar_dados(dados, caminho)
+            anterior = caminho.read_bytes()
+            saida = io.StringIO()
+            with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                    patch("main.salvar_dados", wraps=main.salvar_dados) as salvar, \
+                    patch("builtins.input", side_effect=["5", "1", "talvez", "n", "0"]), \
+                    redirect_stdout(saida):
+                self.assertEqual(main.main(), 0)
+            salvar.assert_not_called()
+            self.assertEqual(caminho.read_bytes(), anterior)
+            self.assertNotIn("Tempo de chegada salvo com sucesso.", saida.getvalue())
+
+    def test_voltar_ou_numero_ausente_ou_lista_vazia_nao_gravam(self):
+        for corredores, entradas in (
+            ([inscricao_exemplo()], ["5", "0", "0"]),
+            ([inscricao_exemplo()], ["5", "9", "0"]),
+            ([], ["5", "0"]),
+        ):
+            dados = {"versao": 1, "corredores": corredores, "resultados": []}
+            with self.subTest(entradas=entradas), tempfile.TemporaryDirectory() as diretorio:
+                caminho = Path(diretorio) / "corrida.json"
+                main.salvar_dados(dados, caminho)
+                anterior = caminho.read_bytes()
+                with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                        patch("main.salvar_dados", wraps=main.salvar_dados) as salvar, \
+                        patch("builtins.input", side_effect=entradas), redirect_stdout(io.StringIO()):
+                    self.assertEqual(main.main(), 0)
+                salvar.assert_not_called()
+                self.assertEqual(caminho.read_bytes(), anterior)
+
+
 class TestFluxoDaSessao(unittest.TestCase):
     def setUp(self):
         temporario = tempfile.TemporaryDirectory()
@@ -297,6 +438,35 @@ class TestFluxoDaSessao(unittest.TestCase):
         resultado = self.executar(["1"])
         self.assertEqual(resultado.returncode, 1)
         self.assertEqual(self.arquivo.read_text(encoding="utf-8"), "{invalido")
+
+    def test_registra_chegada_e_recupera_na_consulta_apos_reiniciar(self):
+        dados = dados_exemplo()
+        main.salvar_dados(dados, self.arquivo)
+        primeira = self.executar(["5", "1", "00:22:00", "0"])
+        self.assertEqual(primeira.returncode, 0, primeira.stderr)
+        self.assertIn("Tempo de chegada salvo com sucesso.", primeira.stdout)
+        recuperados = main.carregar_dados(self.arquivo)
+        self.assertEqual(recuperados["corredores"], [dict(dados["corredores"][0], tempo_chegada="00:22:00")])
+        self.assertEqual(recuperados["resultados"], dados["resultados"])
+        self.assertIn("Inscrições aceitas: 0", primeira.stdout)
+        anterior = self.arquivo.read_bytes()
+        segunda = self.executar(["3", "1", "4", "0"])
+        self.assertEqual(segunda.returncode, 0, segunda.stderr)
+        self.assertIn("Tempo de chegada: 00:22:00", segunda.stdout)
+        self.assertEqual(self.arquivo.read_bytes(), anterior)
+
+    def test_chegada_repete_tempo_invalido_e_confirma_atualizacao(self):
+        dados = dados_exemplo()
+        main.salvar_dados(dados, self.arquivo)
+        resultado = self.executar([
+            "5", "1", "00:00:00", "00:60:00", "00:21:00",
+            "5", "1", "talvez", "s", "00:20:00", "0",
+        ])
+        self.assertEqual(resultado.returncode, 0, resultado.stderr)
+        recuperados = main.carregar_dados(self.arquivo)
+        self.assertEqual(recuperados["corredores"], [dict(dados["corredores"][0], tempo_chegada="00:20:00")])
+        self.assertEqual(recuperados["resultados"], dados["resultados"])
+        self.assertEqual(resultado.stdout.count("Tempo de chegada salvo com sucesso."), 2)
 
     def test_sair_sem_operacoes_nao_cria_arquivo(self):
         resultado = self.executar(["0"])
