@@ -65,6 +65,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - [x] Armazenar e recuperar inscrições e resultados entre execuções.
 - [x] Registrar tempos de chegada dos participantes.
 - [x] Gerar **classificações e rankings** por distância e categoria.
+- [x] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
 
 ### Menu atual
 
@@ -76,6 +77,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 | `4` | Exibir o histórico de resultados calculados |
 | `5` | Registrar o tempo de chegada de um participante inscrito |
 | `6` | Consultar a classificação por distância e categoria |
+| `7` | Exibir totais e relatórios de inscrições, arrecadação e resultados |
 | `0` | Exibir o resumo da sessão e encerrar |
 
 Na opção `3`, digite `0` para voltar depois de ver a lista de inscritos. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente. A numeração continua após o maior número de inscrição recuperado do arquivo.
@@ -100,6 +102,19 @@ Tempos iguais recebem a mesma posição, e a posição seguinte considera o tota
 
 A consulta usa os tempos recuperados do arquivo e reflete substituições de tempo. Não altera inscrições nem grava dados. Cálculos avulsos não participam dos rankings.
 
+### Totais e relatórios da corrida
+
+Na opção `7`, o sistema reúne todas as inscrições da edição, incluindo as recuperadas de execuções anteriores e as cadastradas na sessão atual. O relatório apresenta:
+
+- Quantidade total de inscrições, arrecadação, chegadas registradas e pendentes e participantes premiados pelo limite de tempo da categoria e distância.
+- Esses mesmos totais separados por distância (5 km e 10 km), categoria e lote, incluindo grupos vazios com valores zerados.
+- Relação das inscrições com número, nome, distância, categoria, lote e valor cobrado, considerando os acréscimos e descontos da inscrição.
+- Resultados dos inscritos com tempo de chegada, pace e premiação; participantes sem tempo registrado aparecem como pendentes.
+
+As relações seguem o número de inscrição crescente. Cada inscrição é contada uma única vez, mesmo quando nomes se repetem. Substituir um tempo atualiza os resultados e a premiação no próximo relatório. Os cálculos avulsos das opções `2` e `4` permanecem no histórico e não entram nos totais ou nos resultados dos inscritos.
+
+A consulta não altera nem grava dados. Sem inscrições, exibe totais zerados e informa que não há participantes. O resumo exibido ao sair continua considerando somente as inscrições e a arrecadação da sessão atual.
+
 ### Armazenamento e recuperação
 
 As inscrições, seus tempos de chegada e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
@@ -114,14 +129,13 @@ As inscrições, seus tempos de chegada e o histórico de resultados são salvos
 
 **Próximos itens, ainda não implementados:**
 
-- [ ] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
 - [ ] Permitir consulta da classificação geral da prova.
 
 As próximas etapas serão implementadas separadamente, seguindo a ordem da lista.
 
 ## Testes
 
-Execute os testes de cadastro, consulta, armazenamento, recuperação, registro de tempos e classificação com:
+Execute os testes de cadastro, consulta, armazenamento, recuperação, registro de tempos, classificação e relatórios com:
 
 ```powershell
 py -3 -m unittest -v
@@ -129,10 +143,12 @@ py -3 -m unittest -v
 
 Os testes incluem a recuperação dos dados após reiniciar o programa, a leitura de inscrições antigas sem tempo de chegada, a identificação de homônimos pelo número da inscrição, a validação e a substituição de tempos, além da preservação dos dados anteriores em caso de arquivo inválido ou falha de gravação.
 
+Os testes de relatórios conferem os totais e agrupamentos, os descontos, o pace e a premiação dos inscritos, a atualização após substituir um tempo, o relatório vazio e a consulta sem gravação. Também verificam a separação dos cálculos avulsos e do resumo da sessão.
+
 ## Tecnologias
 
 - Python 3
 - Git e GitHub
 - Visual Studio Code
 
-O desenvolvimento da V2.0 continua com os relatórios e a consulta da classificação geral da prova.
+O desenvolvimento da V2.0 continua com a consulta da classificação geral da prova.

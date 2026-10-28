@@ -414,6 +414,99 @@ def consultar_historico_resultados(resultados):
         print(f"Premiado: {'Sim' if resultado['premiado'] else 'Não'}")
 
 
+def gerar_relatorio_corrida(corredores):
+    """Consolida inscrições, arrecadação e chegadas de toda a corrida."""
+    participantes = []
+    for corredor in sorted(corredores, key=lambda item: item["numero"]):
+        participante = dict(corredor)
+        tempo = corredor.get("tempo_chegada")
+        participante["pace"] = None
+        participante["premiado"] = None
+        if tempo is not None:
+            segundos = converter_tempo_segundos(tempo)
+            participante["pace"] = calcular_pace(segundos, corredor["distancia"])
+            participante["premiado"] = verificar_premiacao(
+                corredor["idade"], corredor["distancia"], segundos,
+            )
+        participantes.append(participante)
+
+    def resumir(grupo):
+        chegadas = sum(item.get("tempo_chegada") is not None for item in grupo)
+        return {
+            "total_inscricoes": len(grupo),
+            "total_arrecadado": sum(item["valor_inscricao"] for item in grupo),
+            "total_chegadas": chegadas,
+            "total_pendentes": len(grupo) - chegadas,
+            "total_premiados": sum(item["premiado"] is True for item in grupo),
+        }
+
+    relatorio = resumir(participantes)
+    relatorio["participantes"] = participantes
+    for campo, valores in (
+        ("distancia", (5, 10)),
+        ("categoria", ("Juvenil", "Adulto", "Master", "Veterano")),
+        ("lote", (1, 2)),
+    ):
+        relatorio[f"por_{campo}"] = {
+            valor: resumir([item for item in participantes if item[campo] == valor])
+            for valor in valores
+        }
+    return relatorio
+
+
+def consultar_relatorio_corrida(corredores):
+    """Exibe totais e relatórios da edição sem alterar os dados salvos."""
+    relatorio = gerar_relatorio_corrida(corredores)
+    print("\nRelatório da corrida inteira:")
+    print(f"Total de inscrições: {relatorio['total_inscricoes']}")
+    print(f"Arrecadação total da corrida: R$ {relatorio['total_arrecadado']:.2f}")
+    print(f"Chegadas registradas: {relatorio['total_chegadas']}")
+    print(f"Chegadas pendentes: {relatorio['total_pendentes']}")
+    print(f"Premiados por limite de tempo: {relatorio['total_premiados']}")
+
+    for campo, titulo, sufixo in (
+        ("distancia", "distância", " km"),
+        ("categoria", "categoria", ""),
+        ("lote", "lote", "º lote"),
+    ):
+        print(f"\nTotais por {titulo}:")
+        for valor, totais in relatorio[f"por_{campo}"].items():
+            print(
+                f"{valor}{sufixo} | Inscrições: {totais['total_inscricoes']} | "
+                f"Arrecadação: R$ {totais['total_arrecadado']:.2f} | "
+                f"Chegadas: {totais['total_chegadas']} | "
+                f"Pendentes: {totais['total_pendentes']} | "
+                f"Premiados: {totais['total_premiados']}"
+            )
+
+    print("\nRelatório de inscrições e arrecadação:")
+    if not relatorio["participantes"]:
+        print("Nenhum corredor cadastrado nesta corrida.")
+    for corredor in relatorio["participantes"]:
+        print(
+            f"Inscrição {corredor['numero']} | {corredor['nome']} | "
+            f"{corredor['distancia']} km | {corredor['categoria']} | "
+            f"Lote {corredor['lote']} | R$ {corredor['valor_inscricao']:.2f}"
+        )
+
+    print("\nRelatório de resultados dos inscritos (ordem de inscrição):")
+    if not relatorio["participantes"]:
+        print("Nenhum resultado de participante inscrito.")
+    for corredor in relatorio["participantes"]:
+        identificacao = (
+            f"Inscrição {corredor['numero']} | {corredor['nome']} | "
+            f"{corredor['distancia']} km | {corredor['categoria']}"
+        )
+        tempo = corredor.get("tempo_chegada")
+        if tempo is None:
+            print(f"{identificacao} | Tempo de chegada: pendente")
+        else:
+            print(
+                f"{identificacao} | Tempo: {tempo} | Pace médio: {corredor['pace']} | "
+                f"Premiado: {'Sim' if corredor['premiado'] else 'Não'}"
+            )
+
+
 def main():
     """Recupera e salva inscrições e cálculos, mantendo o resumo da sessão."""
     try:
@@ -437,6 +530,7 @@ def main():
         print("4 - Consultar resultados salvos")
         print("5 - Registrar tempo de chegada")
         print("6 - Consultar classificação por distância e categoria")
+        print("7 - Consultar totais e relatórios da corrida")
         print("0 - Sair")
         try:
             opcao = input("Escolha uma opção: ").strip()
@@ -498,6 +592,8 @@ def main():
                 print("Tempo de chegada salvo com sucesso.")
             elif opcao == "6":
                 consultar_classificacao(dados["corredores"])
+            elif opcao == "7":
+                consultar_relatorio_corrida(dados["corredores"])
             elif opcao == "0":
                 print("\nResumo da sessão:")
                 print(f"Inscrições aceitas: {quantidade_inscricoes}")
@@ -505,7 +601,7 @@ def main():
                 print("Encerrando o sistema.")
                 return 0
             else:
-                print("Opção inválida. Escolha 1, 2, 3, 4, 5, 6 ou 0.")
+                print("Opção inválida. Escolha 1, 2, 3, 4, 5, 6, 7 ou 0.")
         except (OSError, ValueError) as erro:
             print(f"Não foi possível salvar a operação: {erro}")
             print("Os dados anteriores foram mantidos. A operação não foi confirmada.")

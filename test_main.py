@@ -315,6 +315,146 @@ class TestClassificacao(unittest.TestCase):
             self.assertEqual(main.gerar_classificacao(recuperados["corredores"], 5)[0]["numero"], 1)
 
 
+class TestRelatorios(unittest.TestCase):
+    def setUp(self):
+        self.corredores = []
+        for numero, idade, distancia, lote, tempo in (
+            (1, 30, 5, 1, "00:22:00"),
+            (2, 65, 10, 2, "01:04:00"),
+            (3, 18, 5, 2, None),
+            (4, 45, 10, 1, None),
+            (5, 30, 5, 2, "00:23:00"),
+            (6, 60, 5, 1, "00:30:00"),
+        ):
+            self.corredores.append(inscricao_exemplo(
+                numero=numero, idade=idade, distancia=distancia, lote=lote,
+                categoria=main.determinar_categoria(idade),
+                codigo=main.gerar_codigo_corredor("Maria Souza", idade),
+                valor_inscricao=main.calcular_valor_inscricao(idade, distancia, lote),
+                tempo_chegada=tempo,
+            ))
+        # Uma inscrição antiga, sem o campo opcional, também fica pendente.
+        del self.corredores[2]["tempo_chegada"]
+
+    def test_consolida_valores_cobrados_chegadas_pendencias_e_premiados(self):
+        relatorio = main.gerar_relatorio_corrida(self.corredores)
+        self.assertEqual(relatorio["total_inscricoes"], 6)
+        self.assertEqual(relatorio["total_arrecadado"], 480)
+        self.assertEqual(relatorio["total_chegadas"], 4)
+        self.assertEqual(relatorio["total_pendentes"], 2)
+        self.assertEqual(relatorio["total_premiados"], 2)
+        for campo, esperados in (
+            ("distancia", {5: (4, 320, 3, 1, 2), 10: (2, 160, 1, 1, 0)}),
+            ("categoria", {
+                "Juvenil": (1, 100, 0, 1, 0), "Adulto": (2, 180, 2, 0, 1),
+                "Master": (1, 100, 0, 1, 0), "Veterano": (2, 100, 2, 0, 1),
+            }),
+            ("lote", {1: (3, 220, 2, 1, 2), 2: (3, 260, 2, 1, 0)}),
+        ):
+            grupos = relatorio[f"por_{campo}"]
+            for valor, esperado in esperados.items():
+                with self.subTest(campo=campo, valor=valor):
+                    totais = grupos[valor]
+                    self.assertEqual((
+                        totais["total_inscricoes"], totais["total_arrecadado"],
+                        totais["total_chegadas"], totais["total_pendentes"],
+                        totais["total_premiados"],
+                    ), esperado)
+            for chave in ("total_inscricoes", "total_arrecadado", "total_chegadas",
+                          "total_pendentes", "total_premiados"):
+                self.assertEqual(sum(grupo[chave] for grupo in grupos.values()), relatorio[chave])
+
+    def test_resultados_por_inscricao_calculam_pace_e_nao_alteram_cadastros(self):
+        corredores = list(reversed(self.corredores))
+        anterior = [dict(c) for c in corredores]
+        participantes = main.gerar_relatorio_corrida(corredores)["participantes"]
+        self.assertEqual([c["numero"] for c in participantes], [1, 2, 3, 4, 5, 6])
+        self.assertEqual(participantes[0]["pace"], "4'24\"/km")
+        self.assertTrue(participantes[0]["premiado"])
+        self.assertEqual(participantes[1]["pace"], "6'24\"/km")
+        self.assertFalse(participantes[1]["premiado"])
+        for participante in participantes[2:4]:
+            self.assertIsNone(participante["pace"])
+            self.assertIsNone(participante["premiado"])
+        participantes[0]["nome"] = "Outro nome"
+        self.assertEqual(corredores, anterior)
+
+    def test_substituicao_de_tempo_atualiza_premiacao_sem_duplicar_totais(self):
+        main.registrar_tempo_chegada(self.corredores, 2, "01:03:00", substituir=True)
+        relatorio = main.gerar_relatorio_corrida(self.corredores)
+        self.assertEqual(relatorio["total_inscricoes"], 6)
+        self.assertEqual(relatorio["total_arrecadado"], 480)
+        self.assertEqual(relatorio["total_chegadas"], 4)
+        self.assertEqual(relatorio["total_premiados"], 3)
+        self.assertEqual(relatorio["por_distancia"][10]["total_premiados"], 1)
+        self.assertEqual(relatorio["participantes"][1]["pace"], "6'18\"/km")
+
+    def test_relatorio_vazio_e_grupos_sem_inscricoes(self):
+        for corredores in ([], [inscricao_exemplo()]):
+            with self.subTest(corredores=corredores):
+                relatorio = main.gerar_relatorio_corrida(corredores)
+                self.assertEqual(relatorio["total_inscricoes"], len(corredores))
+                self.assertEqual(relatorio["total_chegadas"], 0)
+                self.assertEqual(relatorio["total_pendentes"], len(corredores))
+                self.assertEqual(relatorio["total_premiados"], 0)
+                for totais in (relatorio["por_distancia"][10], relatorio["por_categoria"]["Master"],
+                               relatorio["por_lote"][2]):
+                    self.assertTrue(all(valor == 0 for valor in totais.values()))
+        self.assertEqual(main.gerar_relatorio_corrida([])["total_arrecadado"], 0)
+
+    def test_menu_inclui_inscricoes_recuperadas_e_novas_sem_contar_calculos_avulsos(self):
+        dados = {"versao": 1, "corredores": self.corredores, "resultados": [resultado_exemplo()]}
+        with tempfile.TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "corrida.json"
+            main.salvar_dados(dados, caminho)
+            saida = io.StringIO()
+            with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                    patch("builtins.input", side_effect=["1", "Pedro Lima", "18", "5", "1", "7", "0"]), \
+                    redirect_stdout(saida):
+                self.assertEqual(main.main(), 0)
+            texto = saida.getvalue()
+            self.assertIn("Total de inscrições: 7", texto)
+            self.assertIn("Arrecadação total da corrida: R$ 560.00", texto)
+            self.assertIn("Chegadas registradas: 4", texto)
+            self.assertIn("Chegadas pendentes: 3", texto)
+            self.assertIn("Premiados por limite de tempo: 2", texto)
+            self.assertIn("Inscrição 7 | Pedro Lima | 5 km | Juvenil | Lote 1 | R$ 80.00", texto)
+            self.assertIn("Tempo: 00:22:00 | Pace médio: 4'24\"/km | Premiado: Sim", texto)
+            self.assertIn("Tempo: 01:04:00 | Pace médio: 6'24\"/km | Premiado: Não", texto)
+            self.assertEqual(texto.count("Tempo de chegada: pendente"), 3)
+            self.assertIn("Inscrições aceitas: 1", texto)
+            self.assertIn("Total arrecadado: R$ 80.00", texto)
+            self.assertEqual(main.carregar_dados(caminho)["resultados"], dados["resultados"])
+
+    def test_consultar_relatorios_nao_grava_nem_cria_arquivo(self):
+        for corredores, com_arquivo in (([], False), ([], True), (self.corredores, True)):
+            with self.subTest(corredores=corredores, com_arquivo=com_arquivo), tempfile.TemporaryDirectory() as diretorio:
+                caminho = Path(diretorio) / "dados" / "corrida.json"
+                if com_arquivo:
+                    main.salvar_dados({
+                        "versao": 1, "corredores": corredores, "resultados": [resultado_exemplo()],
+                    }, caminho)
+                anterior = caminho.read_bytes() if caminho.exists() else None
+                saida = io.StringIO()
+                with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                        patch("main.salvar_dados", wraps=main.salvar_dados) as salvar, \
+                        patch("builtins.input", side_effect=["7", "7", "0"]), redirect_stdout(saida):
+                    self.assertEqual(main.main(), 0)
+                salvar.assert_not_called()
+                if anterior is None:
+                    self.assertFalse(caminho.parent.exists())
+                else:
+                    self.assertEqual(caminho.read_bytes(), anterior)
+                if not corredores:
+                    self.assertIn("Total de inscrições: 0", saida.getvalue())
+                    self.assertIn("Arrecadação total da corrida: R$ 0.00", saida.getvalue())
+                    self.assertIn("Chegadas registradas: 0", saida.getvalue())
+                    self.assertIn("Premiados por limite de tempo: 0", saida.getvalue())
+                    self.assertIn("Nenhum corredor cadastrado nesta corrida.", saida.getvalue())
+                self.assertIn("Inscrições aceitas: 0", saida.getvalue())
+                self.assertIn("Total arrecadado: R$ 0.00", saida.getvalue())
+
+
 class TestResultadosAvulsos(unittest.TestCase):
     def test_calculo_retorna_resultado_sem_vinculo_com_inscricao(self):
         with patch("builtins.input", side_effect=["30", "5", "00:22:00"]), redirect_stdout(io.StringIO()):
