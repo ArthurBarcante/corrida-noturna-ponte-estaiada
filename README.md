@@ -30,7 +30,7 @@ O corredor é premiado quando seu tempo é **menor ou igual** ao limite da categ
 
 ## Como executar
 
-Requisito: Python 3 instalado. A V1.0 e as etapas implementadas da V2.0 utilizam apenas a biblioteca padrão, sem dependências externas.
+Requisito: Python 3 instalado. A V1.0 e a V2.0 utilizam apenas a biblioteca padrão, sem dependências externas.
 
 1. Clone o repositório ou abra sua pasta no terminal.
 2. Execute:
@@ -57,7 +57,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - Verificação da premiação por categoria e distância.
 - Menu interativo, validação de entradas e resumo da sessão.
 
-## Desenvolvimento da V2.0 — Controle da corrida inteira
+## V2.0 — Controle da corrida inteira
 
 **Itens implementados:**
 
@@ -66,6 +66,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - [x] Registrar tempos de chegada dos participantes.
 - [x] Gerar **classificações e rankings** por distância e categoria.
 - [x] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
+- [x] Permitir consulta da classificação geral da prova.
 
 ### Menu atual
 
@@ -78,6 +79,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 | `5` | Registrar o tempo de chegada de um participante inscrito |
 | `6` | Consultar a classificação por distância e categoria |
 | `7` | Exibir totais e relatórios de inscrições, arrecadação e resultados |
+| `8` | Exibir a classificação geral dos 5 km e dos 10 km |
 | `0` | Exibir o resumo da sessão e encerrar |
 
 Na opção `3`, digite `0` para voltar depois de ver a lista de inscritos. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente. A numeração continua após o maior número de inscrição recuperado do arquivo.
@@ -101,6 +103,14 @@ Na opção `6`, escolha 5 km ou 10 km (`0` para voltar) e uma categoria, ou `0` 
 Tempos iguais recebem a mesma posição, e a posição seguinte considera o total de participantes anteriores (por exemplo: 1º, 1º, 3º). Empatados aparecem por número de inscrição crescente. Cada filtro recalcula suas posições; distâncias diferentes nunca são misturadas. Se não houver chegadas no filtro, o programa informa isso.
 
 A consulta usa os tempos recuperados do arquivo e reflete substituições de tempo. Não altera inscrições nem grava dados. Cálculos avulsos não participam dos rankings.
+
+### Classificação geral da prova
+
+Na opção `8`, o sistema exibe diretamente a classificação geral dos 5 km e, em seguida, a dos 10 km, reunindo todas as categorias de cada distância. As posições são independentes por distância e seguem o menor tempo de chegada. Cada linha identifica posição, número da inscrição, nome, categoria e tempo.
+
+Os empates seguem a mesma regra da opção `6`: tempos iguais recebem a mesma posição (por exemplo: 1º, 1º, 3º), com os empatados exibidos por número de inscrição crescente. Participantes sem tempo de chegada registrado ficam fora da classificação; quando uma distância não tem chegadas, o programa informa isso.
+
+A consulta inclui inscrições recuperadas e tempos registrados na sessão atual, e reflete substituições de tempo na próxima consulta. Não solicita filtros nem grava dados. Cálculos avulsos não participam da classificação geral.
 
 ### Totais e relatórios da corrida
 
@@ -127,11 +137,7 @@ As inscrições, seus tempos de chegada e o histórico de resultados são salvos
 - Um arquivo inválido impede a inicialização e tem seu conteúdo preservado. Corrija os dados ou restaure uma cópia válida antes de executar novamente.
 - A pasta `dados/` é ignorada pelo Git; os dados locais não fazem parte do repositório.
 
-**Próximos itens, ainda não implementados:**
-
-- [ ] Permitir consulta da classificação geral da prova.
-
-As próximas etapas serão implementadas separadamente, seguindo a ordem da lista.
+Todos os itens previstos para a V2.0 estão implementados.
 
 ## Testes
 
@@ -145,10 +151,12 @@ Os testes incluem a recuperação dos dados após reiniciar o programa, a leitur
 
 Os testes de relatórios conferem os totais e agrupamentos, os descontos, o pace e a premiação dos inscritos, a atualização após substituir um tempo, o relatório vazio e a consulta sem gravação. Também verificam a separação dos cálculos avulsos e do resumo da sessão.
 
+Os testes da classificação geral verificam a separação por distância, a inclusão das diferentes categorias, os empates, a exclusão de chegadas pendentes e cálculos avulsos e a atualização após substituir um tempo. Também conferem a consulta sem gravação e as distâncias sem resultados.
+
 ## Tecnologias
 
 - Python 3
 - Git e GitHub
 - Visual Studio Code
 
-O desenvolvimento da V2.0 continua com a consulta da classificação geral da prova.
+A V2.0 permite acompanhar inscrições, arrecadação, chegadas e classificações de toda a corrida.

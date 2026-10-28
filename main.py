@@ -173,6 +173,22 @@ def consultar_classificacao(corredores):
         )
 
 
+def consultar_classificacao_geral(corredores):
+    """Exibe todas as categorias, com posições independentes por distância."""
+    print("\nClassificação geral da prova:")
+    for distancia in (5, 10):
+        print(f"\nClassificação geral: {distancia} km")
+        classificacao = gerar_classificacao(corredores, distancia)
+        if not classificacao:
+            print("Nenhum participante com tempo de chegada nesta distância.")
+            continue
+        for corredor in classificacao:
+            print(
+                f"{corredor['posicao']}º | Inscrição {corredor['numero']} | "
+                f"{corredor['nome']} | {corredor['categoria']} | {corredor['tempo_chegada']}"
+            )
+
+
 def calcular_valor_inscricao(idade, distancia, lote):
     """Calcula o valor da inscrição."""
     if lote == 1:
@@ -531,6 +547,7 @@ def main():
         print("5 - Registrar tempo de chegada")
         print("6 - Consultar classificação por distância e categoria")
         print("7 - Consultar totais e relatórios da corrida")
+        print("8 - Consultar classificação geral da prova")
         print("0 - Sair")
         try:
             opcao = input("Escolha uma opção: ").strip()
@@ -594,6 +611,8 @@ def main():
                 consultar_classificacao(dados["corredores"])
             elif opcao == "7":
                 consultar_relatorio_corrida(dados["corredores"])
+            elif opcao == "8":
+                consultar_classificacao_geral(dados["corredores"])
             elif opcao == "0":
                 print("\nResumo da sessão:")
                 print(f"Inscrições aceitas: {quantidade_inscricoes}")
@@ -601,7 +620,7 @@ def main():
                 print("Encerrando o sistema.")
                 return 0
             else:
-                print("Opção inválida. Escolha 1, 2, 3, 4, 5, 6, 7 ou 0.")
+                print("Opção inválida. Escolha 1, 2, 3, 4, 5, 6, 7, 8 ou 0.")
         except (OSError, ValueError) as erro:
             print(f"Não foi possível salvar a operação: {erro}")
             print("Os dados anteriores foram mantidos. A operação não foi confirmada.")

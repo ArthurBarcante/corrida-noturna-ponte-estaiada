@@ -315,6 +315,110 @@ class TestClassificacao(unittest.TestCase):
             self.assertEqual(main.gerar_classificacao(recuperados["corredores"], 5)[0]["numero"], 1)
 
 
+class TestClassificacaoGeral(unittest.TestCase):
+    def setUp(self):
+        self.corredores = []
+        for numero, idade, distancia, tempo in (
+            (4, 45, 5, "00:24:00"),
+            (3, 30, 5, "00:22:00"),
+            (2, 18, 5, "00:22:00"),
+            (9, 65, 10, "00:40:00"),
+            (8, 30, 10, "00:40:00"),
+            (7, 45, 10, "00:41:00"),
+            (5, 30, 5, None),
+            (6, 30, 10, None),
+        ):
+            self.corredores.append(inscricao_exemplo(
+                numero=numero, idade=idade, distancia=distancia,
+                categoria=main.determinar_categoria(idade),
+                codigo=main.gerar_codigo_corredor("Maria Souza", idade),
+                valor_inscricao=main.calcular_valor_inscricao(idade, distancia, 1),
+                tempo_chegada=tempo,
+            ))
+        del self.corredores[-2]["tempo_chegada"]
+
+    def test_exibe_todas_as_categorias_com_empates_e_posicoes_por_distancia(self):
+        anterior = [dict(c) for c in self.corredores]
+        saida = io.StringIO()
+        with patch("builtins.input", side_effect=AssertionError("Consulta geral não solicita filtros")), \
+                redirect_stdout(saida):
+            main.consultar_classificacao_geral(self.corredores)
+        texto = saida.getvalue()
+        self.assertIn("Classificação geral da prova:", texto)
+        cinco, dez = texto.split("Classificação geral: 10 km")
+        self.assertIn("Classificação geral: 5 km", cinco)
+        self.assertEqual([linha for linha in cinco.splitlines() if "º | Inscrição" in linha], [
+            "1º | Inscrição 2 | Maria Souza | Juvenil | 00:22:00",
+            "1º | Inscrição 3 | Maria Souza | Adulto | 00:22:00",
+            "3º | Inscrição 4 | Maria Souza | Master | 00:24:00",
+        ])
+        self.assertEqual([linha for linha in dez.splitlines() if "º | Inscrição" in linha], [
+            "1º | Inscrição 8 | Maria Souza | Adulto | 00:40:00",
+            "1º | Inscrição 9 | Maria Souza | Veterano | 00:40:00",
+            "3º | Inscrição 7 | Maria Souza | Master | 00:41:00",
+        ])
+        self.assertEqual(self.corredores, anterior)
+
+    def test_informa_distancias_sem_chegadas_e_exclui_pendentes(self):
+        for corredores, mensagens in (([], 2), (self.corredores[-2:], 2), (self.corredores[:1], 1)):
+            saida = io.StringIO()
+            with self.subTest(corredores=corredores), redirect_stdout(saida):
+                main.consultar_classificacao_geral(corredores)
+            texto = saida.getvalue()
+            self.assertEqual(texto.count("Nenhum participante com tempo de chegada nesta distância."), mensagens)
+            self.assertNotIn("Inscrição 5 |", texto)
+            self.assertNotIn("Inscrição 6 |", texto)
+
+    def test_menu_recupera_dados_sem_gravar_e_nao_classifica_calculos_avulsos(self):
+        for corredores in (self.corredores, []):
+            with self.subTest(corredores=corredores), tempfile.TemporaryDirectory() as diretorio:
+                caminho = Path(diretorio) / "corrida.json"
+                dados = {"versao": 1, "corredores": corredores, "resultados": [resultado_exemplo()]}
+                main.salvar_dados(dados, caminho)
+                anterior = caminho.read_bytes()
+                saida = io.StringIO()
+                with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                        patch("main.salvar_dados", wraps=main.salvar_dados) as salvar, \
+                        patch("builtins.input", side_effect=["8", "8", "0"]), redirect_stdout(saida):
+                    self.assertEqual(main.main(), 0)
+                salvar.assert_not_called()
+                self.assertEqual(caminho.read_bytes(), anterior)
+                texto = saida.getvalue()
+                self.assertEqual(texto.count("Classificação geral da prova:"), 2)
+                self.assertEqual(texto.count("º | Inscrição"), 12 if corredores else 0)
+                self.assertIn("Inscrições aceitas: 0", texto)
+                self.assertIn("Total arrecadado: R$ 0.00", texto)
+
+    def test_substituicao_atualiza_classificacao_e_e_recuperada_apos_reiniciar(self):
+        with tempfile.TemporaryDirectory() as diretorio:
+            programa = Path(diretorio) / "main.py"
+            shutil.copyfile(main.__file__, programa)
+            caminho = Path(diretorio) / "dados" / "corrida.json"
+            main.salvar_dados({
+                "versao": 1, "corredores": self.corredores, "resultados": [resultado_exemplo()],
+            }, caminho)
+
+            def executar(entradas):
+                return subprocess.run(
+                    [sys.executable, str(programa)], input="\n".join(entradas) + "\n",
+                    capture_output=True, text=True, encoding="utf-8", timeout=10,
+                    env=dict(os.environ, PYTHONUTF8="1"),
+                )
+
+            primeira = executar(["5", "4", "s", "00:21:00", "8", "0"])
+            self.assertEqual(primeira.returncode, 0, primeira.stderr)
+            self.assertIn("1º | Inscrição 4 | Maria Souza | Master | 00:21:00", primeira.stdout)
+            self.assertIn("2º | Inscrição 2 | Maria Souza | Juvenil | 00:22:00", primeira.stdout)
+            self.assertIn("2º | Inscrição 3 | Maria Souza | Adulto | 00:22:00", primeira.stdout)
+            anterior = caminho.read_bytes()
+            segunda = executar(["8", "0"])
+            self.assertEqual(segunda.returncode, 0, segunda.stderr)
+            self.assertIn("1º | Inscrição 4 | Maria Souza | Master | 00:21:00", segunda.stdout)
+            self.assertIn("2º | Inscrição 2 | Maria Souza | Juvenil | 00:22:00", segunda.stdout)
+            self.assertEqual(caminho.read_bytes(), anterior)
+            self.assertEqual(main.carregar_dados(caminho)["resultados"], [resultado_exemplo()])
+
+
 class TestRelatorios(unittest.TestCase):
     def setUp(self):
         self.corredores = []
