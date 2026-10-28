@@ -4,6 +4,7 @@ import tempfile
 from pathlib import Path
 
 
+VERSAO_SISTEMA = "2.0"
 ARQUIVO_DADOS = Path(__file__).resolve().parent / "dados" / "corrida.json"
 
 
@@ -539,6 +540,7 @@ def main():
     while True:
         print("\n====================================")
         print(" CORRIDA NOTURNA DA PONTE ESTAIADA")
+        print(f" Versão {VERSAO_SISTEMA}")
         print("====================================")
         print("1 - Fazer inscrição")
         print("2 - Calcular resultado")

@@ -1,12 +1,14 @@
 # Corrida Noturna da Ponte Estaiada
 
-Sistema de terminal desenvolvido em **Python** para apoiar as inscrições e a apuração individual de resultados da **Corrida Noturna da Ponte Estaiada**, organizada pela Assessoria Passo Certo, em Teresina (PI).
+**Versão atual: 2.0** — lançamento oficial em **28/10/2026**, identificado pela tag **`v2.0`**.
+
+Sistema de terminal desenvolvido em **Python** para controlar inscrições, arrecadação, tempos de chegada e classificações da **Corrida Noturna da Ponte Estaiada**, organizada pela Assessoria Passo Certo, em Teresina (PI).
 
 ## Objetivo
 
-Reduzir erros de cobrança e de enquadramento em categorias, além de automatizar cálculos de tempo, ritmo e premiação. Na **versão 1.0**, o sistema atende um corredor por vez e mantém o resumo das inscrições apenas durante a sessão de execução.
+Reduzir erros de cobrança e de enquadramento em categorias, além de automatizar cálculos de tempo, ritmo e premiação. Na **versão 2.0**, o sistema acompanha múltiplos corredores em uma mesma edição, recupera inscrições e resultados entre execuções e oferece relatórios e classificações da corrida inteira.
 
-## Funcionalidades da V1.0
+## Funcionalidades básicas mantidas desde a V1.0
 
 - **Menu interativo:** fazer inscrição, calcular resultado ou sair.
 - **Inscrição:** registrar nome, idade, distância (5 km ou 10 km) e lote; recusar inscrições de menores de 16 anos; exibir comprovante.
@@ -56,6 +58,15 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - Conversão do tempo e cálculo do pace.
 - Verificação da premiação por categoria e distância.
 - Menu interativo, validação de entradas e resumo da sessão.
+
+### V2.0 — Controle da corrida inteira (28/10/2026)
+
+- Lançamento oficial identificado pela tag `v2.0` e pela versão exibida no menu do sistema.
+- Cadastro e consulta de múltiplos corredores, com inscrições e cálculos avulsos salvos entre execuções.
+- Registro e substituição de tempos de chegada por número de inscrição.
+- Rankings por distância e categoria e consulta da classificação geral dos 5 km e dos 10 km.
+- Totais e relatórios de inscrições, arrecadação e resultados de toda a edição.
+- Compatibilidade com os dados já salvos durante o desenvolvimento da V2.0.
 
 ## V2.0 — Controle da corrida inteira
 
@@ -128,6 +139,8 @@ A consulta não altera nem grava dados. Sem inscrições, exibe totais zerados e
 ### Armazenamento e recuperação
 
 As inscrições, seus tempos de chegada e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
+
+O campo `versao` desse arquivo continua com o valor `1`, pois identifica o formato de armazenamento, independentemente da versão `2.0` do sistema. Não é necessário converter os dados existentes para usar esta versão.
 
 - Se o arquivo não existir, o programa inicia sem inscrições e sem resultados anteriores.
 - A pasta e o arquivo são criados automaticamente na primeira gravação após um cadastro, cálculo ou registro de tempo.
