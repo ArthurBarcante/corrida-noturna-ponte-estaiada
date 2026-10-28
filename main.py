@@ -121,6 +121,58 @@ def registrar_tempo_chegada(corredores, numero_inscricao, tempo, substituir=Fals
     return corredor
 
 
+def gerar_classificacao(corredores, distancia, categoria=None):
+    """Classifica chegadas por distância e, opcionalmente, categoria."""
+    categorias = ("Juvenil", "Adulto", "Master", "Veterano")
+    if distancia not in (5, 10):
+        raise ValueError("A distância deve ser 5 ou 10 km.")
+    if categoria is not None and categoria not in categorias:
+        raise ValueError("Categoria inválida.")
+    classificados = [
+        dict(corredor) for corredor in corredores
+        if corredor["distancia"] == distancia
+        and (categoria is None or corredor["categoria"] == categoria)
+        and corredor.get("tempo_chegada") is not None
+    ]
+    classificados.sort(key=lambda corredor: (
+        converter_tempo_segundos(corredor["tempo_chegada"]), corredor["numero"],
+    ))
+    tempo_anterior = None
+    posicao = 0
+    for indice, corredor in enumerate(classificados, start=1):
+        tempo = converter_tempo_segundos(corredor["tempo_chegada"])
+        if tempo != tempo_anterior:
+            posicao = indice
+        corredor["posicao"] = posicao
+        tempo_anterior = tempo
+    return classificados
+
+
+def consultar_classificacao(corredores):
+    """Exibe o ranking da distância e categoria selecionadas."""
+    distancia = solicitar_inteiro(
+        "Distância da classificação (5 ou 10 km; 0 para voltar): ", opcoes=(0, 5, 10),
+    )
+    if distancia == 0:
+        return
+    categorias = ("Juvenil", "Adulto", "Master", "Veterano")
+    print("0 - Todas as categorias")
+    for numero, categoria in enumerate(categorias, start=1):
+        print(f"{numero} - {categoria}")
+    opcao = solicitar_inteiro("Categoria: ", opcoes=(0, 1, 2, 3, 4))
+    categoria = categorias[opcao - 1] if opcao else None
+    classificacao = gerar_classificacao(corredores, distancia, categoria)
+    print(f"\nClassificação: {distancia} km | {categoria or 'Todas as categorias'}")
+    if not classificacao:
+        print("Nenhum participante com tempo de chegada neste filtro.")
+        return
+    for corredor in classificacao:
+        print(
+            f"{corredor['posicao']}º | Inscrição {corredor['numero']} | "
+            f"{corredor['nome']} | {corredor['categoria']} | {corredor['tempo_chegada']}"
+        )
+
+
 def calcular_valor_inscricao(idade, distancia, lote):
     """Calcula o valor da inscrição."""
     if lote == 1:
@@ -384,6 +436,7 @@ def main():
         print("3 - Consultar corredores cadastrados")
         print("4 - Consultar resultados salvos")
         print("5 - Registrar tempo de chegada")
+        print("6 - Consultar classificação por distância e categoria")
         print("0 - Sair")
         try:
             opcao = input("Escolha uma opção: ").strip()
@@ -443,6 +496,8 @@ def main():
                 salvar_dados(atualizados, ARQUIVO_DADOS)
                 dados = atualizados
                 print("Tempo de chegada salvo com sucesso.")
+            elif opcao == "6":
+                consultar_classificacao(dados["corredores"])
             elif opcao == "0":
                 print("\nResumo da sessão:")
                 print(f"Inscrições aceitas: {quantidade_inscricoes}")
@@ -450,7 +505,7 @@ def main():
                 print("Encerrando o sistema.")
                 return 0
             else:
-                print("Opção inválida. Escolha 1, 2, 3, 4, 5 ou 0.")
+                print("Opção inválida. Escolha 1, 2, 3, 4, 5, 6 ou 0.")
         except (OSError, ValueError) as erro:
             print(f"Não foi possível salvar a operação: {erro}")
             print("Os dados anteriores foram mantidos. A operação não foi confirmada.")

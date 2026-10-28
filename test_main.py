@@ -255,6 +255,66 @@ class TestRegistroDeChegada(unittest.TestCase):
             self.assertEqual(dados_corredor, anterior)
 
 
+class TestClassificacao(unittest.TestCase):
+    def test_ordena_filtra_empates_e_preserva_inscricoes(self):
+        corredores = [
+            inscricao_exemplo(numero=4, tempo_chegada="00:23:00"),
+            inscricao_exemplo(numero=3, tempo_chegada="00:22:00"),
+            inscricao_exemplo(numero=2, tempo_chegada="00:22:00"),
+            inscricao_exemplo(numero=5, idade=18, categoria="Juvenil", tempo_chegada="00:21:00"),
+            inscricao_exemplo(numero=6, distancia=10, tempo_chegada="00:01:00"),
+            inscricao_exemplo(numero=7),
+            inscricao_exemplo(numero=8, tempo_chegada=None),
+        ]
+        anterior = [dict(c) for c in corredores]
+        ranking = main.gerar_classificacao(corredores, 5)
+        self.assertEqual([c["numero"] for c in ranking], [5, 2, 3, 4])
+        self.assertEqual([c["posicao"] for c in ranking], [1, 2, 2, 4])
+        adultos = main.gerar_classificacao(corredores, 5, "Adulto")
+        self.assertEqual([c["numero"] for c in adultos], [2, 3, 4])
+        self.assertEqual([c["posicao"] for c in adultos], [1, 1, 3])
+        self.assertEqual(main.gerar_classificacao(corredores, 10)[0]["numero"], 6)
+        self.assertEqual(corredores, anterior)
+        ranking[0]["nome"] = "Outro"
+        self.assertEqual(corredores, anterior)
+
+    def test_filtros_vazios_e_invalidos(self):
+        self.assertEqual(main.gerar_classificacao([], 5), [])
+        self.assertEqual(main.gerar_classificacao([inscricao_exemplo()], 5), [])
+        self.assertEqual(main.gerar_classificacao([
+            inscricao_exemplo(tempo_chegada="00:22:00"),
+        ], 5, "Master"), [])
+        for distancia, categoria in ((3, None), (5, "Inexistente")):
+            with self.subTest(distancia=distancia, categoria=categoria), self.assertRaises(ValueError):
+                main.gerar_classificacao([], distancia, categoria)
+
+    def test_menu_recupera_chegadas_sem_gravar_e_reflete_substituicao(self):
+        dados = dados_exemplo()
+        dados["corredores"] = [
+            inscricao_exemplo(tempo_chegada="00:22:00"),
+            inscricao_exemplo(numero=2, tempo_chegada="00:21:00"),
+        ]
+        with tempfile.TemporaryDirectory() as diretorio:
+            caminho = Path(diretorio) / "corrida.json"
+            main.salvar_dados(dados, caminho)
+            anterior = caminho.read_bytes()
+            saida = io.StringIO()
+            with patch.object(main, "ARQUIVO_DADOS", caminho), \
+                    patch("main.salvar_dados", wraps=main.salvar_dados) as salvar, \
+                    patch("builtins.input", side_effect=["6", "3", "5", "9", "2", "6", "10", "0", "6", "0", "0"]), \
+                    redirect_stdout(saida):
+                self.assertEqual(main.main(), 0)
+            salvar.assert_not_called()
+            self.assertEqual(caminho.read_bytes(), anterior)
+            texto = saida.getvalue()
+            self.assertLess(texto.index("1º | Inscrição 2"), texto.index("2º | Inscrição 1"))
+            self.assertIn("Nenhum participante com tempo de chegada neste filtro.", texto)
+            main.registrar_tempo_chegada(dados["corredores"], 1, "00:20:00", substituir=True)
+            main.salvar_dados(dados, caminho)
+            recuperados = main.carregar_dados(caminho)
+            self.assertEqual(main.gerar_classificacao(recuperados["corredores"], 5)[0]["numero"], 1)
+
+
 class TestResultadosAvulsos(unittest.TestCase):
     def test_calculo_retorna_resultado_sem_vinculo_com_inscricao(self):
         with patch("builtins.input", side_effect=["30", "5", "00:22:00"]), redirect_stdout(io.StringIO()):

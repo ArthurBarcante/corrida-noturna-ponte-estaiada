@@ -64,6 +64,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 - [x] Cadastrar e consultar **múltiplos corredores** em uma mesma edição da corrida.
 - [x] Armazenar e recuperar inscrições e resultados entre execuções.
 - [x] Registrar tempos de chegada dos participantes.
+- [x] Gerar **classificações e rankings** por distância e categoria.
 
 ### Menu atual
 
@@ -74,6 +75,7 @@ Em ambientes onde o comando `py` não estiver disponível, utilize `python3 main
 | `3` | Listar os inscritos e consultar uma inscrição pelo número |
 | `4` | Exibir o histórico de resultados calculados |
 | `5` | Registrar o tempo de chegada de um participante inscrito |
+| `6` | Consultar a classificação por distância e categoria |
 | `0` | Exibir o resumo da sessão e encerrar |
 
 Na opção `3`, digite `0` para voltar depois de ver a lista de inscritos. Nomes e códigos abreviados podem se repetir, mas cada inscrição recebe um número diferente. A numeração continua após o maior número de inscrição recuperado do arquivo.
@@ -90,6 +92,14 @@ A opção `3` mostra o tempo de chegada do participante ou indica **pendente**. 
 
 A opção `0` preserva o resumo da V1.0: considera somente a quantidade de inscrições aceitas e o valor arrecadado **durante a execução atual**. As inscrições recuperadas continuam disponíveis para consulta, mas não entram novamente nos totais da sessão.
 
+### Classificações por distância e categoria
+
+Na opção `6`, escolha 5 km ou 10 km (`0` para voltar) e uma categoria, ou `0` para todas as categorias daquela distância. O ranking inclui somente inscritos com tempo de chegada registrado, em ordem do menor para o maior tempo, identificados por número de inscrição, nome, categoria e tempo.
+
+Tempos iguais recebem a mesma posição, e a posição seguinte considera o total de participantes anteriores (por exemplo: 1º, 1º, 3º). Empatados aparecem por número de inscrição crescente. Cada filtro recalcula suas posições; distâncias diferentes nunca são misturadas. Se não houver chegadas no filtro, o programa informa isso.
+
+A consulta usa os tempos recuperados do arquivo e reflete substituições de tempo. Não altera inscrições nem grava dados. Cálculos avulsos não participam dos rankings.
+
 ### Armazenamento e recuperação
 
 As inscrições, seus tempos de chegada e o histórico de resultados são salvos em **`dados/corrida.json`**, em UTF-8. O caminho é relativo à pasta de `main.py`, independentemente da pasta de trabalho do terminal.
@@ -104,7 +114,6 @@ As inscrições, seus tempos de chegada e o histórico de resultados são salvos
 
 **Próximos itens, ainda não implementados:**
 
-- [ ] Gerar **classificações e rankings** por distância e categoria.
 - [ ] Consolidar totais da corrida e relatórios de inscrições, arrecadação e resultados.
 - [ ] Permitir consulta da classificação geral da prova.
 
@@ -112,7 +121,7 @@ As próximas etapas serão implementadas separadamente, seguindo a ordem da list
 
 ## Testes
 
-Execute os testes de cadastro, consulta, armazenamento, recuperação e registro de tempos com:
+Execute os testes de cadastro, consulta, armazenamento, recuperação, registro de tempos e classificação com:
 
 ```powershell
 py -3 -m unittest -v
@@ -126,4 +135,4 @@ Os testes incluem a recuperação dos dados após reiniciar o programa, a leitur
 - Git e GitHub
 - Visual Studio Code
 
-O desenvolvimento da V2.0 continua com as classificações e os relatórios da corrida.
+O desenvolvimento da V2.0 continua com os relatórios e a consulta da classificação geral da prova.
